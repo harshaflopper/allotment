@@ -95,6 +95,96 @@
     $(document).ready(function() {
         console.log('jQuery loaded successfully!');
     });
+
+    async function blobToBase64(blob) {
+        const arrayBuffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode.apply(null, chunk);
+        }
+        return btoa(binary);
+    }
+
+    async function downloadBlob(filename, blob, mimeType) {
+        const safeName = filename || 'download';
+        const type = mimeType || blob.type || 'application/octet-stream';
+
+        try {
+            if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.save_file === 'function') {
+                const base64Data = await blobToBase64(blob);
+                const result = await window.pywebview.api.save_file({
+                    filename: safeName,
+                    data: base64Data,
+                    mime_type: type
+                });
+                if (result && result.status === 'success') {
+                    return true;
+                }
+                if (result && result.status === 'cancelled') {
+                    return false;
+                }
+                console.warn('pywebview save_file response:', result);
+            }
+        } catch (err) {
+            console.error('pywebview save_file failed:', err);
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = safeName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return true;
+    }
+
+    function printHtmlDocument(htmlContent) {
+        const printWindow = window.open('', '_blank');
+        if (printWindow && printWindow.document) {
+            printWindow.document.open();
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 250);
+            return;
+        }
+
+        let frame = document.getElementById('print-frame-helper');
+        if (!frame) {
+            frame = document.createElement('iframe');
+            frame.id = 'print-frame-helper';
+            frame.style.position = 'fixed';
+            frame.style.right = '0';
+            frame.style.bottom = '0';
+            frame.style.width = '0';
+            frame.style.height = '0';
+            frame.style.border = '0';
+            document.body.appendChild(frame);
+        }
+
+        const frameDoc = frame.contentWindow || frame.contentDocument;
+        if (!frameDoc) {
+            console.error('Unable to access print frame document');
+            return;
+        }
+
+        const doc = frameDoc.document || frameDoc;
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        setTimeout(() => {
+            frameDoc.focus();
+            frameDoc.print();
+        }, 250);
+    }
     </script>
     
     {% block extra_js %}{% endblock %}

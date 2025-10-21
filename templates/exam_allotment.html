@@ -727,7 +727,7 @@ $(document).ready(function() {
     });
 
     // Export button handler - exports the current professors table to Excel
-    $('#exportAllocationBtn').on('click', function() {
+    $('#exportAllocationBtn').on('click', async function() {
         // Ensure table is available
         if ($('#professorsSection').hasClass('d-none')) {
             alert('Please proceed to allocation to generate the table before exporting.');
@@ -744,7 +744,9 @@ $(document).ready(function() {
             const start = $('#examStartDate').val() || '';
             const end = $('#examEndDate').val() || '';
             const filename = `ExamAllotment_${start}_${end}.xlsx`.replace(/[:\\/\\\\]/g, '-');
-            XLSX.writeFile(wb, filename);
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            await downloadBlob(filename, blob);
         } catch (e) {
             console.error('Export failed:', e);
             alert('Export failed. Please try again.');
@@ -757,7 +759,7 @@ $(document).ready(function() {
     });
 
     // Export by Date as Document - generates SIT Tumkur formatted documents grouped by date & session
-    function exportByDateAsDocument(sessionFilter = 'both') {
+    async function exportByDateAsDocument(sessionFilter = 'both') {
         if ($('#professorsSection').hasClass('d-none')) {
             alert('Please proceed to allocation to generate the table before exporting.');
             return;
@@ -902,15 +904,7 @@ $(document).ready(function() {
             `;
 
             const blob = new Blob([htmlContent], { type: 'application/msword' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${prefix}_${fileSuffix}.doc`;
-            
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            await downloadBlob(`${prefix}_${fileSuffix}.doc`, blob, 'application/msword');
 
         } catch (e) {
             console.error('Document export failed:', e);
@@ -1095,7 +1089,7 @@ $(document).ready(function() {
     }
 
     // Export by Date helpers
-    function exportByDate(sessionFilter = 'both') {
+    async function exportByDate(sessionFilter = 'both') {
         if ($('#professorsSection').hasClass('d-none')) {
             alert('Please proceed to allocation to generate the table before exporting.');
             return;
@@ -1214,7 +1208,9 @@ $(document).ready(function() {
                 : sessionFilter === 'pm'
                     ? 'SIT_Tumkur_PM_Allotment'
                     : 'SIT_Tumkur_AM_Allotment';
-            XLSX.writeFile(wb, `${prefix}_${fileSuffix}.xlsx`);
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            await downloadBlob(`${prefix}_${fileSuffix}.xlsx`, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         } catch (e) {
             console.error('Export failed:', e);
             alert('Export failed. Please try again.');
@@ -1556,7 +1552,9 @@ $(document).ready(function() {
         const start = $('#examStartDate').val() || '';
         const end = $('#examEndDate').val() || '';
         const filename = `ExamAllotment_ByDepartment_${start}_${end}.xlsx`.replace(/[:\\/\\\\]/g, '-');
-        XLSX.writeFile(wb, filename);
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        downloadBlob(filename, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     });
 
     // Print by Department - opens print dialog with one section per department
@@ -1677,16 +1675,7 @@ $(document).ready(function() {
 
         html += `</body></html>`;
 
-        const w = window.open('', '_blank');
-        if (!w) {
-            alert('Popup blocked. Please allow popups to print.');
-            return;
-        }
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-        // Give the new window a moment to render before printing
-        setTimeout(function(){ w.print(); }, 300);
+        printHtmlDocument(html);
     });
 
     // Export Dept Doc button handler - exports department-wise data as Word document
@@ -1806,15 +1795,8 @@ $(document).ready(function() {
 
         // Create and download as Word document
         const blob = new Blob([html], { type: 'application/msword' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
         const filename = `ExamAllotment_DeptWise_${start}_${end}.doc`.replace(/[:\\/\\\\]/g, '-');
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        downloadBlob(filename, blob, 'application/msword');
     });
 
     // Progress bar update function
@@ -3979,14 +3961,7 @@ $(document).ready(function() {
          `;
          
          // Open print window
-         const printWindow = window.open('', '_blank', 'width=800,height=600');
-         printWindow.document.write(printHTML);
-         printWindow.document.close();
-         
-         // Auto-trigger print dialog after content loads
-         printWindow.onload = function() {
-             printWindow.print();
-         };
+         printHtmlDocument(printHTML);
          
          console.log('Print report generated successfully');
      }
